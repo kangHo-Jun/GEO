@@ -1,9 +1,9 @@
-name: geoflow-laravel
+name: geoflow-upstream
 
 services:
   postgres:
     image: ${PGVECTOR_IMAGE:-pgvector/pgvector:pg16}
-    container_name: geoflow-postgres
+    container_name: geoflow-upstream-postgres
     environment:
       POSTGRES_DB: ${DB_DATABASE:-geo_flow}
       POSTGRES_USER: ${DB_USERNAME:-geo_user}
@@ -21,14 +21,14 @@ services:
 
   redis:
     image: ${REDIS_IMAGE:-redis:7-alpine}
-    container_name: geoflow-redis
+    container_name: geoflow-upstream-redis
     ports:
       - "127.0.0.1:${REDIS_EXPOSE_PORT:-16379}:6379"
     restart: unless-stopped
 
   assets:
     image: ${NODE_IMAGE:-node:22-bookworm-slim}
-    container_name: geoflow-assets
+    container_name: geoflow-upstream-assets
     working_dir: /var/www/html
     command: ["sh", "-lc", "npm ci --include=dev --no-audit --no-fund && npm run build"]
     volumes:
@@ -37,14 +37,14 @@ services:
     restart: "no"
 
   init:
-    image: geoflow-app:latest
+    image: geoflow-app-upstream:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         PHP_CLI_IMAGE: ${PHP_CLI_IMAGE:-php:8.4-cli-bookworm}
         COMPOSER_PACKAGIST_MIRROR: ${COMPOSER_PACKAGIST_MIRROR:-}
-    container_name: geoflow-init
+    container_name: geoflow-upstream-init
     working_dir: /var/www/html
     env_file:
       - ./.env
@@ -62,14 +62,14 @@ services:
     restart: "no"
 
   app:
-    image: geoflow-app:latest
+    image: geoflow-app-upstream:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         PHP_CLI_IMAGE: ${PHP_CLI_IMAGE:-php:8.4-cli-bookworm}
         COMPOSER_PACKAGIST_MIRROR: ${COMPOSER_PACKAGIST_MIRROR:-}
-    container_name: geoflow-app
+    container_name: geoflow-upstream-app
     working_dir: /var/www/html
     command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
     ports:
@@ -84,14 +84,14 @@ services:
     restart: unless-stopped
 
   queue:
-    image: geoflow-app:latest
+    image: geoflow-app-upstream:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         PHP_CLI_IMAGE: ${PHP_CLI_IMAGE:-php:8.4-cli-bookworm}
         COMPOSER_PACKAGIST_MIRROR: ${COMPOSER_PACKAGIST_MIRROR:-}
-    container_name: geoflow-queue
+    container_name: geoflow-upstream-queue
     working_dir: /var/www/html
     command: ["php", "artisan", "queue:work", "redis", "--queue=geoflow,distribution,theme-replication,default", "--sleep=1", "--tries=1", "--timeout=300"]
     volumes:
@@ -102,14 +102,14 @@ services:
     restart: unless-stopped
 
   scheduler:
-    image: geoflow-app:latest
+    image: geoflow-app-upstream:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         PHP_CLI_IMAGE: ${PHP_CLI_IMAGE:-php:8.4-cli-bookworm}
         COMPOSER_PACKAGIST_MIRROR: ${COMPOSER_PACKAGIST_MIRROR:-}
-    container_name: geoflow-scheduler
+    container_name: geoflow-upstream-scheduler
     working_dir: /var/www/html
     command: ["php", "artisan", "schedule:work"]
     volumes:
@@ -120,14 +120,14 @@ services:
     restart: unless-stopped
 
   reverb:
-    image: geoflow-app:latest
+    image: geoflow-app-upstream:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         PHP_CLI_IMAGE: ${PHP_CLI_IMAGE:-php:8.4-cli-bookworm}
         COMPOSER_PACKAGIST_MIRROR: ${COMPOSER_PACKAGIST_MIRROR:-}
-    container_name: geoflow-reverb
+    container_name: geoflow-upstream-reverb
     working_dir: /var/www/html
     command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
     ports:
