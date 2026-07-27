@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\ArticleEditorAssetController;
 use App\Http\Controllers\Admin\AuthorController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\BloggerOAuthController;
 use App\Http\Controllers\Admin\DistributionController;
 use App\Http\Controllers\Admin\EnterpriseKnowledgeController;
 use App\Http\Controllers\Admin\ImageLibraryController;
@@ -159,6 +160,8 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
             Route::post('{channelId}/sync-settings', [DistributionController::class, 'syncSettings'])->name('sync-settings')->whereNumber('channelId');
             Route::get('{channelId}', [DistributionController::class, 'show'])->name('show')->whereNumber('channelId');
             Route::post('{channelId}/health', [DistributionController::class, 'health'])->name('health')->whereNumber('channelId');
+            Route::get('{channelId}/blogger/connect', [BloggerOAuthController::class, 'redirect'])->name('blogger.connect')->whereNumber('channelId');
+            Route::get('blogger/callback', [BloggerOAuthController::class, 'callback'])->name('blogger.callback');
         });
 
         // 文章管理（Blade 新路径）

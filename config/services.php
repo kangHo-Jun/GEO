@@ -39,4 +39,12 @@ return [
         ],
     ],
 
+    'blogger' => [
+        'client_id' => env('BLOGGER_OAUTH_CLIENT_ID'),
+        'client_secret' => env('BLOGGER_OAUTH_CLIENT_SECRET'),
+        'redirect_uri' => env('BLOGGER_OAUTH_REDIRECT_URI'),
+        'trust_badge_url' => env('BLOGGER_TRUST_BADGE_URL'),
+        'cta_url' => env('BLOGGER_CTA_URL', 'https://web-cadalog-ver10.vercel.app/'),
+    ],
+
 ];

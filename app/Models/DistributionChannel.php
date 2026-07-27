@@ -468,6 +468,18 @@ class DistributionChannel extends Model
     }
 
     /**
+     * @return array{blogger_blog_id:string}
+     */
+    public function resolvedBloggerConfig(): array
+    {
+        $stored = is_array($this->channel_config) ? $this->channel_config : [];
+
+        return [
+            'blogger_blog_id' => trim((string) ($stored['blogger_blog_id'] ?? '')),
+        ];
+    }
+
+    /**
      * @return array{
      *   generic_auth_type:string,
      *   generic_basic_username:string,
