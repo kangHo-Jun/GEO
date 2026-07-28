@@ -60,10 +60,7 @@ class FixedElementInjector
             htmlspecialchars($ctaUrl, ENT_QUOTES, 'UTF-8')
         );
 
-        // 본문 중간 지점에 1회
-        $html = $this->insertAtMiddleTopLevelElement($html, $ctaHtml);
-
-        // 본문 끝에 1회 더 (총 2회 - 08_고정요소가이드.md의 "본문 중간 + 끝" 배치와 동일)
+        // 본문 끝에 1회만 삽입 (중간 삽입은 짧은 글에서 끝부분과 겹쳐 중복처럼 보이는 문제가 있어 제거함)
         return $html.$ctaHtml;
     }
 
@@ -71,7 +68,7 @@ class FixedElementInjector
     {
         $signatureHtml = '<div style="margin-top:2.5em;padding-top:1.2em;border-top:1px solid #ddd;font-size:0.9em;color:#555;">'
             .'<strong>대산 건축자재</strong><br />'
-            .'공식 사이트: <a href="https://daesanboard.com">daesanboard.com</a>'
+            .'공식 사이트: <a href="https://daesan.ai">daesan.ai</a>'
             .'</div>';
 
         return $html.$signatureHtml;
@@ -133,23 +130,6 @@ class FixedElementInjector
         $targetIndex = min($afterIndex, count($children)) - 1;
         $targetIndex = max($targetIndex, 0);
         $referenceNode = $children[$targetIndex];
-
-        $this->insertHtmlAfterNode($document, $body, $referenceNode, $insertHtml);
-
-        return $this->serializeBody($document, $body);
-    }
-
-    private function insertAtMiddleTopLevelElement(string $html, string $insertHtml): string
-    {
-        [$document, $body] = $this->parseFragment($html);
-
-        $children = iterator_to_array($body->childNodes);
-        if (count($children) === 0) {
-            return $html;
-        }
-
-        $middleIndex = (int) floor(count($children) / 2);
-        $referenceNode = $children[$middleIndex];
 
         $this->insertHtmlAfterNode($document, $body, $referenceNode, $insertHtml);
 
