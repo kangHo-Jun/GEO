@@ -201,6 +201,19 @@
                             <dt class="text-gray-500">{{ __('admin.distribution.generic.publish_endpoint') }}</dt>
                             <dd class="mt-1 break-all font-mono text-sm text-gray-900">{{ $genericConfig['generic_publish_method'] }} {{ $genericConfig['generic_publish_path'] }}</dd>
                         </div>
+                    @elseif ($channel->isBlogger())
+                        <div>
+                            <dt class="text-gray-500">Blog ID</dt>
+                            <dd class="mt-1 font-mono text-sm text-gray-900">{{ $channel->resolvedBloggerConfig()['blogger_blog_id'] ?: __('admin.common.none') }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-500">OAuth connection</dt>
+                            <dd class="mt-1">
+                                <a href="{{ route('admin.distribution.blogger.connect', ['channelId' => $channel->id]) }}" class="inline-flex items-center rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700">
+                                    Connect Blogger
+                                </a>
+                            </dd>
+                        </div>
                     @endif
                     <div>
                         <dt class="text-gray-500">{{ __('admin.distribution.field.health_status') }}</dt>

@@ -1232,6 +1232,7 @@ class DistributionController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'wordpress_username' => ['nullable', 'string', 'max:120'],
             'wordpress_application_password' => ['nullable', 'string', 'max:255'],
+            'blogger_blog_id' => ['nullable', 'string', 'max:60'],
             'wordpress_post_status' => ['nullable', 'string', 'in:publish,draft,pending,private'],
             'wordpress_category_strategy' => ['nullable', 'string', 'in:match_or_create,match_only,fixed'],
             'wordpress_fixed_category' => ['nullable', 'string', 'max:120'],
@@ -1687,6 +1688,16 @@ class DistributionController extends Controller
                 'generic_remote_id_path' => trim((string) ($payload['generic_remote_id_path'] ?? $defaults['generic_remote_id_path'])),
                 'generic_remote_url_path' => trim((string) ($payload['generic_remote_url_path'] ?? $defaults['generic_remote_url_path'])),
                 'generic_payload_wrapper' => (string) ($payload['generic_payload_wrapper'] ?? $defaults['generic_payload_wrapper']),
+            ], $channel);
+        }
+
+        if ($channelType === 'blogger') {
+            $defaults = $channel?->resolvedBloggerConfig() ?? (new DistributionChannel)->resolvedBloggerConfig();
+
+            return $this->withExistingFrontendCapabilitiesCache([
+                'article_text_ad_policy' => $articleTextAdPolicy,
+                'frontend_experience_mode' => $frontendExperienceMode,
+                'blogger_blog_id' => trim((string) ($payload['blogger_blog_id'] ?? $defaults['blogger_blog_id'])),
             ], $channel);
         }
 

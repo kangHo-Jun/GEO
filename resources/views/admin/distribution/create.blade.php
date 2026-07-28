@@ -72,6 +72,13 @@
                                     <span class="mt-1 block text-sm text-gray-600">{{ __('admin.distribution.channel_type.generic_http_api_desc') }}</span>
                                 </span>
                             </label>
+                            <label class="flex cursor-pointer gap-3 rounded-md border border-gray-200 bg-white p-4 hover:border-blue-300">
+                                <input type="radio" name="channel_type" value="blogger" class="mt-1 text-blue-600 focus:ring-blue-500" @checked($channelType === 'blogger')>
+                                <span>
+                                    <span class="block text-sm font-semibold text-gray-900">Blogger</span>
+                                    <span class="mt-1 block text-sm text-gray-600">Publish directly to a Blogger blog via Blogger API v3 (OAuth2).</span>
+                                </span>
+                            </label>
                         </div>
                     </fieldset>
 
@@ -229,6 +236,17 @@
                                 <label for="generic_remote_url_path" class="block text-sm font-medium text-gray-700">{{ __('admin.distribution.generic.remote_url_path') }}</label>
                                 <input id="generic_remote_url_path" name="generic_remote_url_path" type="text" value="{{ old('generic_remote_url_path', 'url') }}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="data.url">
                             </div>
+                        </div>
+                    </div>
+
+                    <div data-channel-type-panel="blogger" @class(['rounded-lg border border-orange-100 bg-orange-50 p-5', 'hidden' => $channelType !== 'blogger'])>
+                        <div class="mb-5">
+                            <h2 class="text-lg font-medium text-gray-900">Blogger settings</h2>
+                            <p class="mt-1 text-sm leading-6 text-gray-600">Enter the numeric Blog ID from your Blogger dashboard. OAuth connection is completed after saving, from the channel detail page.</p>
+                        </div>
+                        <div class="max-w-md">
+                            <label for="blogger_blog_id" class="block text-sm font-medium text-gray-700">Blog ID</label>
+                            <input id="blogger_blog_id" name="blogger_blog_id" type="text" value="{{ old('blogger_blog_id') }}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-orange-500 focus:ring-orange-500" placeholder="3911627335922911456">
                         </div>
                     </div>
 
