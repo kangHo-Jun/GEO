@@ -83,6 +83,10 @@ final class OpenAiRuntimeProvider
             return 'gemini';
         }
 
+        if (self::isAnthropicProviderUrl($normalized)) {
+            return 'anthropic';
+        }
+
         if ($host === 'api.openai.com') {
             return 'openai';
         }
@@ -119,6 +123,16 @@ final class OpenAiRuntimeProvider
         $host = strtolower((string) (parse_url(trim($apiUrl), PHP_URL_HOST) ?? ''));
 
         return $host === 'generativelanguage.googleapis.com';
+    }
+
+    /**
+     * 判断 URL 是否指向 Anthropic Claude API 原生服务。
+     */
+    public static function isAnthropicProviderUrl(string $apiUrl): bool
+    {
+        $host = strtolower((string) (parse_url(trim($apiUrl), PHP_URL_HOST) ?? ''));
+
+        return $host === 'api.anthropic.com';
     }
 
     /**
