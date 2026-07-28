@@ -42,7 +42,15 @@ class FixedElementInjector
             htmlspecialchars($badgeUrl, ENT_QUOTES, 'UTF-8')
         );
 
-        // 도입부(부제/인사말/고객 질문 인용) 다음, 본문 시작 전에 삽입
+        // 본문 이미지(Image Library 사진)가 있으면 그 바로 다음에 뱃지를 배치한다
+        // (요청사항: 생성 이미지가 뱃지보다 위에 오도록). 본문 이미지 위치는
+        // 소제목 매칭 기반이라 글마다 달라서, 위치를 동적으로 찾아 삽입한다.
+        // 본문 이미지가 없는 글은 기존처럼 도입부(3번째 블록) 다음에 삽입한다.
+        $afterImage = $this->insertAfterFirstImage($html, $badgeHtml);
+        if ($afterImage !== null) {
+            return $afterImage;
+        }
+
         return $this->insertAfterNthTopLevelElement($html, $badgeHtml, 3);
     }
 
@@ -117,6 +125,48 @@ class FixedElementInjector
     /**
      * 원본 HTML을 그대로 반환해야 하는 파싱 실패 상황을 판별한다.
      */
+    /**
+     * 본문에 이미 삽입된 첫 번째 <img>를 찾아, 그 이미지를 감싸는 최상위 블록 바로 다음에
+     * $insertHtml을 삽입한다. 이미지가 없으면 null을 반환한다(호출부에서 폴백 처리).
+     */
+    private function insertAfterFirstImage(string $html, string $insertHtml): ?string
+    {
+        [$document, $body] = $this->parseFragment($html);
+
+        $images = $document->getElementsByTagName('img');
+        if ($images->length === 0) {
+            return null;
+        }
+
+        $imageNode = $images->item(0);
+
+        // 이미지를 감싸는, body의 "최상위 자식" 블록을 찾는다.
+        $topLevelAncestor = $imageNode;
+        while ($topLevelAncestor->parentNode !== null && $topLevelAncestor->parentNode !== $body) {
+            $topLevelAncestor = $topLevelAncestor->parentNode;
+        }
+
+        if ($topLevelAncestor->parentNode !== $body) {
+            return null;
+        }
+
+        // 이미지가 속한 "섹션"(다음 h1~h6가 나오기 전까지)의 마지막 요소를 찾는다.
+        // 문단 중간이 아니라 그 섹션이 끝나는 지점에 뱃지를 배치하기 위함.
+        $sectionEndNode = $topLevelAncestor;
+        $sibling = $topLevelAncestor->nextSibling;
+        while ($sibling !== null) {
+            if ($sibling instanceof DOMElement && preg_match('/^h[1-6]$/i', $sibling->tagName) === 1) {
+                break;
+            }
+            $sectionEndNode = $sibling;
+            $sibling = $sibling->nextSibling;
+        }
+
+        $this->insertHtmlAfterNode($document, $body, $sectionEndNode, $insertHtml);
+
+        return $this->serializeBody($document, $body);
+    }
+
     private function insertAfterNthTopLevelElement(string $html, string $insertHtml, int $afterIndex): string
     {
         [$document, $body] = $this->parseFragment($html);
