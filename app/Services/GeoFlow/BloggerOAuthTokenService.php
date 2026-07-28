@@ -6,6 +6,7 @@ use App\Models\DistributionChannel;
 use App\Models\DistributionChannelSecret;
 use App\Support\GeoFlow\ApiKeyCrypto;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -16,9 +17,17 @@ use RuntimeException;
  * - client_id / client_secret : config('services.blogger') (.env, 앱 단위 1개)
  * - refresh_token             : DistributionChannelSecret (채널별, ApiKeyCrypto로 암호화)
  * - access_token              : 매 호출 시 refresh_token으로 즉시 재발급 (캐시하지 않음, 단순화 우선)
+ *
+ * 주의: distribution_channel_secrets.key_id 는 테이블 전체에서 전역 유일(unique) 제약이 걸려있다.
+ * 그래서 고정 문자열(예: 'oauth_refresh_token')을 key_id로 쓰면 안 되고,
+ * 기존 WordPress/GenericHttp 시크릿과 동일하게 매번 무작위 key_id를 생성한다.
+ * 이 채널의 "현재 활성 refresh_token"은 key_id가 아니라
+ * distribution_channel_id + status='active' + scopes 로 식별한다.
  */
 class BloggerOAuthTokenService
 {
+    private const SCOPE_MARKER = 'blogger.publish';
+
     public function __construct(
         private readonly ApiKeyCrypto $apiKeyCrypto,
     ) {}
@@ -75,11 +84,7 @@ class BloggerOAuthTokenService
      */
     public function getValidAccessToken(DistributionChannel $channel): string
     {
-        $secret = DistributionChannelSecret::query()
-            ->where('distribution_channel_id', (int) $channel->id)
-            ->where('key_id', 'oauth_refresh_token')
-            ->where('status', 'active')
-            ->first();
+        $secret = $this->activeSecret($channel);
 
         if (! $secret) {
             throw new RuntimeException('Blogger refresh_token이 저장되어 있지 않습니다. 먼저 OAuth 연결을 완료하세요.');
@@ -113,15 +118,34 @@ class BloggerOAuthTokenService
     {
         DistributionChannelSecret::query()
             ->where('distribution_channel_id', (int) $channel->id)
-            ->where('key_id', 'oauth_refresh_token')
-            ->update(['status' => 'revoked']);
+            ->where('status', 'active')
+            ->get()
+            ->filter(fn (DistributionChannelSecret $secret): bool => $this->isBloggerRefreshTokenSecret($secret))
+            ->each(fn (DistributionChannelSecret $secret) => $secret->update(['status' => 'revoked']));
 
         DistributionChannelSecret::query()->create([
             'distribution_channel_id' => (int) $channel->id,
-            'key_id' => 'oauth_refresh_token',
+            'key_id' => 'bloauth_'.Str::lower(Str::random(18)),
             'secret_ciphertext' => $this->apiKeyCrypto->encrypt($refreshToken),
             'status' => 'active',
-            'scopes' => ['blogger.publish'],
+            'scopes' => [self::SCOPE_MARKER],
         ]);
+    }
+
+    private function activeSecret(DistributionChannel $channel): ?DistributionChannelSecret
+    {
+        return DistributionChannelSecret::query()
+            ->where('distribution_channel_id', (int) $channel->id)
+            ->where('status', 'active')
+            ->orderByDesc('id')
+            ->get()
+            ->first(fn (DistributionChannelSecret $secret): bool => $this->isBloggerRefreshTokenSecret($secret));
+    }
+
+    private function isBloggerRefreshTokenSecret(DistributionChannelSecret $secret): bool
+    {
+        $scopes = is_array($secret->scopes) ? $secret->scopes : [];
+
+        return in_array(self::SCOPE_MARKER, $scopes, true);
     }
 }
