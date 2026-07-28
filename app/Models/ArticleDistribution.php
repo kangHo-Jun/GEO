@@ -48,6 +48,18 @@ class ArticleDistribution extends Model
         return is_numeric($postId) ? (int) $postId : null;
     }
 
+    public function bloggerPostId(): ?string
+    {
+        if ($this->remote_id !== null && (string) $this->remote_id !== '') {
+            return (string) $this->remote_id;
+        }
+
+        $meta = is_array($this->remote_meta) ? $this->remote_meta : [];
+        $postId = $meta['blogger_post_id'] ?? null;
+
+        return is_string($postId) && $postId !== '' ? $postId : null;
+    }
+
     public function article(): BelongsTo
     {
         return $this->belongsTo(Article::class, 'article_id');
