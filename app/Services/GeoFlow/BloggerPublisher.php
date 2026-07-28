@@ -15,7 +15,12 @@ use RuntimeException;
  * WordPressRestPublisher와 동일한 계약(DistributionPublisherInterface)을 따르며,
  * Task/Distribution 쪽 기존 코드는 전혀 수정하지 않는다.
  *
- * 파이프라인: OAuth 토큰 확보 -> HTML 스타일 보정 -> 고정요소 삽입 -> Blogger API 호출
+ * 파이프라인: OAuth 토큰 확보 -> HTML 스타일 보정 -> 로컬 이미지 GitHub 재호스팅
+ *           -> 고정요소 삽입(뱃지/CTA/서명) -> Blogger API 호출
+ *
+ * 재호스팅이 고정요소 삽입보다 먼저인 이유: FixedElementInjector가 "본문 이미지가 속한
+ * 섹션 끝"을 찾아 뱃지를 배치하는데, 이 시점엔 이미지가 이미 공개 URL이어야
+ * 정상적으로 <img> 태그로 인식된다.
  */
 class BloggerPublisher implements DistributionPublisherInterface
 {
@@ -24,6 +29,7 @@ class BloggerPublisher implements DistributionPublisherInterface
     public function __construct(
         private readonly BloggerOAuthTokenService $tokenService,
         private readonly BloggerContentStyleAdapter $styleAdapter,
+        private readonly GitHubImageRehostService $imageRehostService,
         private readonly FixedElementInjector $elementInjector,
     ) {}
 
@@ -126,6 +132,7 @@ class BloggerPublisher implements DistributionPublisherInterface
         $contentHtml = (string) ($article['content_html'] ?? '');
 
         $contentHtml = $this->styleAdapter->adapt($contentHtml);
+        $contentHtml = $this->imageRehostService->rehostLocalImages($contentHtml);
         $contentHtml = $this->elementInjector->inject($contentHtml);
 
         return [

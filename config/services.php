@@ -47,4 +47,11 @@ return [
         'cta_url' => env('BLOGGER_CTA_URL', 'https://web-cadalog-ver10.vercel.app/'),
     ],
 
+    'github_image_host' => [
+        'token' => env('GITHUB_IMAGE_HOST_TOKEN'),
+        'repo' => env('GITHUB_IMAGE_HOST_REPO', 'kangHo-Jun/Blogger-Automation'),
+        'branch' => env('GITHUB_IMAGE_HOST_BRANCH', 'main'),
+        'path_prefix' => env('GITHUB_IMAGE_HOST_PATH_PREFIX', 'assets/generated'),
+    ],
+
 ];
