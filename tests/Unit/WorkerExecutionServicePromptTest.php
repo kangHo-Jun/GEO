@@ -52,10 +52,11 @@ class WorkerExecutionServicePromptTest extends TestCase
         $this->assertStringContainsString('- Article title: What is AI CRM?', $prompt);
         $this->assertStringContainsString('- Core keyword: AI CRM', $prompt);
         $this->assertStringContainsString('Reference knowledge from the business knowledge base.', $prompt);
+        $this->assertStringContainsString('do not include internal evidence identifiers such as [K1]', $prompt);
         $this->assertStringContainsString('Please output only the final article body in Markdown.', $prompt);
     }
 
-    public function test_prompt_with_knowledge_context_adds_evidence_citation_rule(): void
+    public function test_prompt_with_knowledge_context_keeps_internal_labels_but_forbids_them_in_output(): void
     {
         $prompt = $this->renderContentPrompt(
             'GEO 诊断怎么做？',
@@ -67,7 +68,18 @@ class WorkerExecutionServicePromptTest extends TestCase
         $this->assertStringContainsString('【证据 K1】', $prompt);
         $this->assertStringContainsString('知识库引用要求', $prompt);
         $this->assertStringContainsString('[K1]', $prompt);
+        $this->assertStringContainsString('最终正文中不得输出', $prompt);
         $this->assertStringContainsString('证据不足时不要编造来源或结论', $prompt);
+    }
+
+    public function test_generated_content_normalization_removes_internal_evidence_markers(): void
+    {
+        $content = "第一 根据 [K1][K2] 确认 .\n第二【证据 K3】  内容。\n第三【증거 K4】 结论。";
+
+        $normalized = $this->normalizeGeneratedContent($content);
+
+        $this->assertSame("第一 根据 确认.\n第二 内容。\n第三 结论。", $normalized);
+        $this->assertDoesNotMatchRegularExpression('/\[K\d+\]|【(?:证据|증거) K\d+】/u', $normalized);
     }
 
     public function test_unknown_template_blocks_are_preserved_for_future_extensions(): void
@@ -90,5 +102,14 @@ class WorkerExecutionServicePromptTest extends TestCase
         $method->setAccessible(true);
 
         return (string) $method->invoke($service, $title, $keyword, $promptContent, $knowledgeContext);
+    }
+
+    private function normalizeGeneratedContent(string $content): string
+    {
+        $service = app(WorkerExecutionService::class);
+        $method = new ReflectionMethod($service, 'normalizeGeneratedContent');
+        $method->setAccessible(true);
+
+        return (string) $method->invoke($service, $content);
     }
 }

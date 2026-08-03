@@ -89,7 +89,7 @@ class WorkerExecutionService
         $contentPrompt = $this->buildContentPrompt((string) $titleRow->title, $keyword, $prompt?->content, $knowledgeContext);
         $generation = $this->generateContentWithModelSelection($task, $contentPrompt);
         $aiModel = $generation['model'];
-        $generatedContent = $generation['content'];
+        $generatedContent = $this->normalizeGeneratedContent($generation['content']);
         $imageResult = $this->insertTaskImagesIntoContent($task, $generatedContent);
         $content = $imageResult['content'];
         $selectedImages = $imageResult['images'];
@@ -637,10 +637,29 @@ class WorkerExecutionService
         }
 
         if ($this->isLikelyEnglishPrompt($prompt)) {
-            return 'Knowledge citation rule: when using facts, data, or business judgments from the reference knowledge, cite the evidence ID such as [K1] in the relevant sentence. If the evidence is insufficient, use cautious wording and do not invent sources or conclusions.';
+            return 'Knowledge citation rule: use the provided reference knowledge as evidence for facts, data, and business judgments, but do not include internal evidence identifiers such as [K1] in the final article. If the evidence is insufficient, use cautious wording and do not invent sources or conclusions.';
         }
 
-        return '知识库引用要求：涉及事实、数据或业务判断时，优先依据参考知识中的 [K1] 等证据编号，并在相关句子后标注证据编号；证据不足时不要编造来源或结论。';
+        return '知识库引用要求：涉及事实、数据或业务判断时，应以提供的参考知识为依据，但最终正文中不得输出 [K1] 等内部证据标识符；证据不足时不要编造来源或结论。';
+    }
+
+    /**
+     * Remove internal knowledge evidence identifiers from the generated article
+     * before it is persisted and distributed to any channel.
+     */
+    private function normalizeGeneratedContent(string $content): string
+    {
+        $normalized = preg_replace(
+            '/(?:\[\s*K\d+\s*\]|【\s*(?:证据|증거)\s*K\d+\s*】)/iu',
+            '',
+            $content
+        ) ?? $content;
+
+        // Clean spacing left by removed markers without collapsing line breaks or Markdown indentation.
+        $normalized = preg_replace('/[ \t]+([.,!?;:，。！？；：])/u', '$1', $normalized) ?? $normalized;
+        $normalized = preg_replace('/(?<=\S)[ \t]{2,}(?=\S)/u', ' ', $normalized) ?? $normalized;
+
+        return $normalized;
     }
 
     private function isLikelyEnglishPrompt(string $prompt): bool
