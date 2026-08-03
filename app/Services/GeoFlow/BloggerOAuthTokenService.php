@@ -4,6 +4,8 @@ namespace App\Services\GeoFlow;
 
 use App\Models\DistributionChannel;
 use App\Models\DistributionChannelSecret;
+use App\Services\Outbound\SafeOutboundHttpClient;
+use App\Services\Outbound\SafeOutboundRequest;
 use App\Support\GeoFlow\ApiKeyCrypto;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -30,6 +32,7 @@ class BloggerOAuthTokenService
 
     public function __construct(
         private readonly ApiKeyCrypto $apiKeyCrypto,
+        private readonly SafeOutboundHttpClient $safeHttp,
     ) {}
 
     public function authorizationUrl(string $state): string
@@ -54,7 +57,7 @@ class BloggerOAuthTokenService
      */
     public function exchangeCodeForTokens(string $code): array
     {
-        $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+        $response = $this->request()->post('https://oauth2.googleapis.com/token', [
             'code' => $code,
             'client_id' => (string) config('services.blogger.client_id'),
             'client_secret' => (string) config('services.blogger.client_secret'),
@@ -95,7 +98,7 @@ class BloggerOAuthTokenService
             throw new RuntimeException('Blogger refresh_token 복호화에 실패했습니다.');
         }
 
-        $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+        $response = $this->request()->post('https://oauth2.googleapis.com/token', [
             'client_id' => (string) config('services.blogger.client_id'),
             'client_secret' => (string) config('services.blogger.client_secret'),
             'refresh_token' => $refreshToken,
@@ -130,6 +133,20 @@ class BloggerOAuthTokenService
             'status' => 'active',
             'scopes' => [self::SCOPE_MARKER],
         ]);
+    }
+
+    private function request(): SafeOutboundRequest
+    {
+        $request = Http::asForm()
+            ->timeout(20)
+            ->connectTimeout(5)
+            ->acceptJson();
+
+        return new SafeOutboundRequest(
+            $this->safeHttp,
+            $request,
+            (int) config('geoflow.outbound_json_max_bytes', 4 * 1024 * 1024),
+        );
     }
 
     private function activeSecret(DistributionChannel $channel): ?DistributionChannelSecret

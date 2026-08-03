@@ -2,6 +2,8 @@
 
 namespace App\Services\GeoFlow;
 
+use App\Services\Outbound\SafeOutboundHttpClient;
+use App\Services\Outbound\SafeOutboundRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -16,6 +18,8 @@ use RuntimeException;
  */
 class GitHubImageRehostService
 {
+    public function __construct(private readonly SafeOutboundHttpClient $safeHttp) {}
+
     /**
      * HTML 안의 로컬(/storage/...) <img src>를 전부 찾아 GitHub에 업로드하고,
      * 공개 URL로 치환한 HTML을 반환한다.
@@ -61,10 +65,7 @@ class GitHubImageRehostService
         $fileName = date('Ymd_His').'_'.bin2hex(random_bytes(4)).'_'.basename($diskPath);
         $remotePath = $pathPrefix.'/'.$fileName;
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.$token,
-            'Accept' => 'application/vnd.github+json',
-        ])->put('https://api.github.com/repos/'.$repo.'/contents/'.$remotePath, [
+        $response = $this->request($token)->put('https://api.github.com/repos/'.$repo.'/contents/'.$remotePath, [
             'message' => 'GEOFlow: Blogger 발행용 이미지 자동 업로드 ('.$fileName.')',
             'content' => base64_encode($bytes),
             'branch' => $branch,
@@ -75,5 +76,21 @@ class GitHubImageRehostService
         }
 
         return 'https://raw.githubusercontent.com/'.$repo.'/'.$branch.'/'.$remotePath;
+    }
+
+    private function request(string $token): SafeOutboundRequest
+    {
+        $request = Http::withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'Accept' => 'application/vnd.github+json',
+        ])->timeout(30)
+            ->connectTimeout(5)
+            ->asJson();
+
+        return new SafeOutboundRequest(
+            $this->safeHttp,
+            $request,
+            (int) config('geoflow.outbound_json_max_bytes', 4 * 1024 * 1024),
+        );
     }
 }

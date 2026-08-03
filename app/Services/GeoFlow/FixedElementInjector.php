@@ -38,20 +38,12 @@ class FixedElementInjector
         }
 
         $badgeHtml = sprintf(
-            '<p style="text-align:center;margin:1.5em 0;"><img src="%s" alt="대산 GS건설 3년 연속 납품업체 신뢰마크" style="max-width:100%%;height:auto;" /></p>',
+            '<hr style="margin:2em 0;border:none;border-top:1px solid #ddd;" />'
+            .'<p style="text-align:center;margin:1.5em 0;"><img src="%s" alt="대산 GS건설 3년 연속 납품업체 신뢰마크" style="max-width:100%%;height:auto;" /></p>',
             htmlspecialchars($badgeUrl, ENT_QUOTES, 'UTF-8')
         );
 
-        // 본문 이미지(Image Library 사진)가 있으면 그 바로 다음에 뱃지를 배치한다
-        // (요청사항: 생성 이미지가 뱃지보다 위에 오도록). 본문 이미지 위치는
-        // 소제목 매칭 기반이라 글마다 달라서, 위치를 동적으로 찾아 삽입한다.
-        // 본문 이미지가 없는 글은 기존처럼 도입부(3번째 블록) 다음에 삽입한다.
-        $afterImage = $this->insertAfterFirstImage($html, $badgeHtml);
-        if ($afterImage !== null) {
-            return $afterImage;
-        }
-
-        return $this->insertAfterNthTopLevelElement($html, $badgeHtml, 3);
+        return $this->insertBeforePreferredHeading($html, $badgeHtml);
     }
 
     private function insertCta(string $html, string $ctaUrl): string
@@ -123,70 +115,34 @@ class FixedElementInjector
     }
 
     /**
-     * 원본 HTML을 그대로 반환해야 하는 파싱 실패 상황을 판별한다.
+     * FAQ 제목, 결론 제목 순으로 삽입 위치를 찾고, 둘 다 없으면 본문 끝에 삽입한다.
      */
-    /**
-     * 본문에 이미 삽입된 첫 번째 <img>를 찾아, 그 이미지를 감싸는 최상위 블록 바로 다음에
-     * $insertHtml을 삽입한다. 이미지가 없으면 null을 반환한다(호출부에서 폴백 처리).
-     */
-    private function insertAfterFirstImage(string $html, string $insertHtml): ?string
+    private function insertBeforePreferredHeading(string $html, string $insertHtml): string
     {
         [$document, $body] = $this->parseFragment($html);
 
-        $images = $document->getElementsByTagName('img');
-        if ($images->length === 0) {
-            return null;
-        }
+        $headings = array_values(array_filter(
+            iterator_to_array($body->childNodes),
+            static fn (DOMNode $node): bool => $node instanceof DOMElement
+                && preg_match('/^h[1-6]$/i', $node->tagName) === 1
+        ));
 
-        $imageNode = $images->item(0);
-
-        // 이미지를 감싸는, body의 "최상위 자식" 블록을 찾는다.
-        $topLevelAncestor = $imageNode;
-        while ($topLevelAncestor->parentNode !== null && $topLevelAncestor->parentNode !== $body) {
-            $topLevelAncestor = $topLevelAncestor->parentNode;
-        }
-
-        if ($topLevelAncestor->parentNode !== $body) {
-            return null;
-        }
-
-        // 이미지가 속한 "섹션"(다음 h1~h6가 나오기 전까지)의 마지막 요소를 찾는다.
-        // 문단 중간이 아니라 그 섹션이 끝나는 지점에 뱃지를 배치하기 위함.
-        $sectionEndNode = $topLevelAncestor;
-        $sibling = $topLevelAncestor->nextSibling;
-        while ($sibling !== null) {
-            if ($sibling instanceof DOMElement && preg_match('/^h[1-6]$/i', $sibling->tagName) === 1) {
-                break;
+        $targetHeading = null;
+        foreach (['/FAQ/iu', '/결론/u'] as $pattern) {
+            foreach ($headings as $heading) {
+                if (preg_match($pattern, (string) $heading->textContent) === 1) {
+                    $targetHeading = $heading;
+                    break 2;
+                }
             }
-            $sectionEndNode = $sibling;
-            $sibling = $sibling->nextSibling;
         }
 
-        $this->insertHtmlAfterNode($document, $body, $sectionEndNode, $insertHtml);
+        $this->insertHtmlBeforeNode($document, $body, $targetHeading, $insertHtml);
 
         return $this->serializeBody($document, $body);
     }
 
-    private function insertAfterNthTopLevelElement(string $html, string $insertHtml, int $afterIndex): string
-    {
-        [$document, $body] = $this->parseFragment($html);
-
-        $children = iterator_to_array($body->childNodes);
-        if (count($children) === 0) {
-            // 파싱 실패(빈 문서) -> 원본 문자열 맨 앞에 안전하게 붙임
-            return $insertHtml.$html;
-        }
-
-        $targetIndex = min($afterIndex, count($children)) - 1;
-        $targetIndex = max($targetIndex, 0);
-        $referenceNode = $children[$targetIndex];
-
-        $this->insertHtmlAfterNode($document, $body, $referenceNode, $insertHtml);
-
-        return $this->serializeBody($document, $body);
-    }
-
-    private function insertHtmlAfterNode(DOMDocument $document, DOMElement $body, DOMNode $referenceNode, string $insertHtml): void
+    private function insertHtmlBeforeNode(DOMDocument $document, DOMElement $body, ?DOMNode $referenceNode, string $insertHtml): void
     {
         $fragmentDocument = new DOMDocument('1.0', 'UTF-8');
         libxml_use_internal_errors(true);
@@ -203,9 +159,8 @@ class FixedElementInjector
 
         foreach (iterator_to_array($fragmentBody->childNodes) as $node) {
             $imported = $document->importNode($node, true);
-            if ($referenceNode->nextSibling !== null) {
-                $body->insertBefore($imported, $referenceNode->nextSibling);
-                $referenceNode = $imported;
+            if ($referenceNode !== null) {
+                $body->insertBefore($imported, $referenceNode);
             } else {
                 $body->appendChild($imported);
             }

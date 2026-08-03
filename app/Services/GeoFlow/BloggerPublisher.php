@@ -4,6 +4,8 @@ namespace App\Services\GeoFlow;
 
 use App\Models\ArticleDistribution;
 use App\Models\DistributionChannel;
+use App\Services\Outbound\SafeOutboundHttpClient;
+use App\Services\Outbound\SafeOutboundRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -31,6 +33,7 @@ class BloggerPublisher implements DistributionPublisherInterface
         private readonly BloggerContentStyleAdapter $styleAdapter,
         private readonly GitHubImageRehostService $imageRehostService,
         private readonly FixedElementInjector $elementInjector,
+        private readonly SafeOutboundHttpClient $safeHttp,
     ) {}
 
     public function health(DistributionChannel $channel): array
@@ -141,11 +144,20 @@ class BloggerPublisher implements DistributionPublisherInterface
         ];
     }
 
-    private function request(DistributionChannel $channel): \Illuminate\Http\Client\PendingRequest
+    private function request(DistributionChannel $channel): SafeOutboundRequest
     {
         $accessToken = $this->tokenService->getValidAccessToken($channel);
+        $request = Http::withToken($accessToken)
+            ->timeout(20)
+            ->connectTimeout(5)
+            ->acceptJson()
+            ->asJson();
 
-        return Http::withToken($accessToken)->timeout(20);
+        return new SafeOutboundRequest(
+            $this->safeHttp,
+            $request,
+            (int) config('geoflow.outbound_json_max_bytes', 4 * 1024 * 1024),
+        );
     }
 
     private function blogId(DistributionChannel $channel): string

@@ -42,6 +42,12 @@ final class SafeOutboundRequest
     }
 
     /** @param array<string, mixed> $data */
+    public function put(string $url, array $data = []): Response
+    {
+        return $this->client->send($this->request, 'PUT', $url, $data, $this->maxResponseBytes, $this->maxRedirects);
+    }
+
+    /** @param array<string, mixed> $data */
     public function delete(string $url, array $data = []): Response
     {
         return $this->client->delete($this->request, $url, $data, $this->maxResponseBytes);
