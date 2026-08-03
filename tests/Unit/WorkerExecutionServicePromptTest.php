@@ -82,6 +82,24 @@ class WorkerExecutionServicePromptTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/\[K\d+\]|【(?:证据|증거) K\d+】/u', $normalized);
     }
 
+    public function test_generated_content_normalization_removes_trailing_spaces_after_markers(): void
+    {
+        $content = "문장입니다. [K1]\n문장입니다. [K1][K2]";
+
+        $this->assertSame("문장입니다.\n문장입니다.", $this->normalizeGeneratedContent($content));
+    }
+
+    public function test_generated_content_normalization_preserves_markdown_indentation_and_tables(): void
+    {
+        $content = "- 상위 목록\n  - 하위 목록 [K1]\n\n| 항목 | 값 |\n| --- | --- |\n| MDF | 적합 [K2] |";
+
+        $normalized = $this->normalizeGeneratedContent($content);
+
+        $this->assertSame("- 상위 목록\n  - 하위 목록\n\n| 항목 | 값 |\n| --- | --- |\n| MDF | 적합 |", $normalized);
+        $this->assertStringContainsString("\n  - 하위 목록", $normalized);
+        $this->assertStringContainsString("\n\n| 항목 | 값 |\n| --- | --- |", $normalized);
+    }
+
     public function test_unknown_template_blocks_are_preserved_for_future_extensions(): void
     {
         $prompt = $this->renderContentPrompt(

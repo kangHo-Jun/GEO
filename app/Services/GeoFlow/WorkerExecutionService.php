@@ -658,6 +658,7 @@ class WorkerExecutionService
         // Clean spacing left by removed markers without collapsing line breaks or Markdown indentation.
         $normalized = preg_replace('/[ \t]+([.,!?;:，。！？；：])/u', '$1', $normalized) ?? $normalized;
         $normalized = preg_replace('/(?<=\S)[ \t]{2,}(?=\S)/u', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/[ \t]+$/m', '', $normalized) ?? $normalized;
 
         return $normalized;
     }
